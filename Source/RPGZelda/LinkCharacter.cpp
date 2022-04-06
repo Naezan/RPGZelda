@@ -22,6 +22,8 @@ ALinkCharacter::ALinkCharacter()
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = true;//시작하자마다 tick처리를 원할때
 
+	GetMesh()->SetRelativeLocation(FVector(0.f, 0.f, -70.f));
+
 	//스프링암 컴포넌트 생성
 	CameraSpringArmComp = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraSpringArm"));
 	CameraSpringArmComp->SetRelativeLocationAndRotation(FVector(0.f, 0.f, 50.f),
@@ -39,6 +41,10 @@ ALinkCharacter::ALinkCharacter()
 
 	WeaponComp = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("WeaponComp"));
 	WeaponComp->SetupAttachment(GetMesh());
+
+	PetComp = CreateDefaultSubobject<USceneComponent>(TEXT("PetComp"));
+	PetComp->SetupAttachment(GetMesh());
+	PetComp->SetRelativeLocation(FVector(30.f, 80.f, 100.f));
 
 	//플레이어 소유권 부여
 	AutoPossessPlayer = EAutoReceiveInput::Player0;
@@ -421,7 +427,7 @@ void ALinkCharacter::ZoomOut()
 
 void ALinkCharacter::HandleZoom(float DeltaSeconds)
 {
-	//UE_LOG(LogTemp, Warning, TEXT("ZoomDelta : %f"), CurrentCameraZoom);
+	UE_LOG(LogTemp, Warning, TEXT("ZoomDelta : %f"), CurrentCameraZoom);
 	if (bTransitionZoomIn)
 	{
 		//스프링암 타겟거리

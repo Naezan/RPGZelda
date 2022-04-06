@@ -84,6 +84,9 @@ public:
 	UPROPERTY(VisibleAnywhere)
 		AWeapon* CurrentWeapon;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	USceneComponent* PetComp;
+
 	//UPROPERTY(EditDefaultsOnly, Category = Animation)
 	//	UAnimMontage* CutAnim;
 
