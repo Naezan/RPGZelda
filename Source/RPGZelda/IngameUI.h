@@ -67,7 +67,7 @@ public:
 
 	void OnSelectDownOption();
 
-	void Interact();
+	void InteractUI();
 
 private:
 	FTimerHandle TimerHandle;

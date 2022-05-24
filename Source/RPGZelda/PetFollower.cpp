@@ -35,9 +35,9 @@ void APetFollower::Tick(float DeltaTime)
 	FVector CurrentLocation = GetActorLocation();
 
 	FVector OtherActorPosition = ActorToFollow->GetComponentLocation();
-	UE_LOG(LogTemp, Warning, TEXT("Y : %f"), OtherActorPosition.Y);
-	UE_LOG(LogTemp, Warning, TEXT("Z : %f"), OtherActorPosition.Z);
-	UE_LOG(LogTemp, Warning, TEXT("State : %d"), CurrentState);
+	//UE_LOG(LogTemp, Warning, TEXT("Y : %f"), OtherActorPosition.Y);
+	//UE_LOG(LogTemp, Warning, TEXT("Z : %f"), OtherActorPosition.Z);
+	//UE_LOG(LogTemp, Warning, TEXT("State : %d"), CurrentState);
 
 	float DistanceToActor = FVector::Dist(OtherActorPosition, CurrentLocation);
 

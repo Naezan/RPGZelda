@@ -12,8 +12,14 @@
 				"Engine",
 				"AIModule",
 				"GameplayAbilities",
-				"UMG"
+				"UMG",
+				"CoreUObject"
 			]
+		},
+		{
+			"Name": "RPGLoadingScreen",
+			"Type": "ClientOnly",
+			"LoadingPhase": "PreLoadingScreen"
 		}
 	],
 	"Plugins": [
@@ -23,6 +29,10 @@
 		},
 		{
 			"Name": "NiagaraExtras",
+			"Enabled": true
+		},
+		{
+			"Name": "BlastPlugin",
 			"Enabled": true
 		}
 	]

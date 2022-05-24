@@ -11,18 +11,27 @@
 #include "Animation/AnimInstance.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Engine/SkeletalMeshSocket.h"
+#include "Math/UnrealMathUtility.h"
+#include "Perception/AIPerceptionSystem.h"
+#include "Perception/AIPerceptionStimuliSourceComponent.h"
 
 #include "Weapon.h"
 #include "InteractiveNPCCharacter.h"
+#include "RPGPlayerController.h"
+
+#include "InteractComponent.h"
 
 // Sets default values
 ALinkCharacter::ALinkCharacter()
 {
 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
-	PrimaryActorTick.bStartWithTickEnabled = true;//시작하자마다 tick처리를 원할때
 
 	GetMesh()->SetRelativeLocation(FVector(0.f, 0.f, -70.f));
+
+	//AI가 인식하는 컴포넌트
+	AIStimuliSource = CreateDefaultSubobject<UAIPerceptionStimuliSourceComponent>
+		(TEXT("AIPerceptionSource"));
 
 	//스프링암 컴포넌트 생성
 	CameraSpringArmComp = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraSpringArm"));
@@ -46,6 +55,12 @@ ALinkCharacter::ALinkCharacter()
 	PetComp->SetupAttachment(GetMesh());
 	PetComp->SetRelativeLocation(FVector(30.f, 80.f, 100.f));
 
+	LookAtPoint = CreateDefaultSubobject<USceneComponent>(TEXT("LookAtPoint"));
+	LookAtPoint->SetupAttachment(GetMesh());
+	LookAtPoint->SetRelativeLocation(FVector(0.f, 0.f, 0.f));
+
+	InteractionComp = CreateDefaultSubobject<UInteractComponent>("InteractionComp");
+
 	//플레이어 소유권 부여
 	AutoPossessPlayer = EAutoReceiveInput::Player0;
 
@@ -67,9 +82,7 @@ ALinkCharacter::ALinkCharacter()
 	//무기 생성
 	CurrentWeapon = NULL;
 
-	CharacterName = "Link";
 	IsDead = false;
-	bIsColEnd = true;
 }
 
 // Called when the game starts or when spawned
@@ -77,15 +90,8 @@ void ALinkCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
-	SetDefaultHP(100.f);
 	//테스트
-	GiveDefaultWeapon();
-
-	//무기 충돌 설정
-	CurrentWeapon->GetCapsuleComp()->OnComponentBeginOverlap.AddDynamic(this,
-		&ALinkCharacter::OnOverlapBegin);
-	CurrentWeapon->GetCapsuleComp()->OnComponentEndOverlap.AddDynamic(this,
-		&ALinkCharacter::OnOverlapEnd);
+	//GiveDefaultWeapon();
 }
 
 void ALinkCharacter::PostInitializeComponents()
@@ -106,22 +112,31 @@ void ALinkCharacter::Tick(float DeltaTime)
 void ALinkCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
+}
 
-	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ALinkCharacter::StartJump);
-	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ALinkCharacter::StopJump);
+void ALinkCharacter::RotateCharacter()
+{
+	APlayerController* PlayerController = Cast<APlayerController>(GetController());
+	if (PlayerController)
+	{
+		float LocationX, LocationY;
+		PlayerController->GetMousePosition(LocationX, LocationY);
 
-	PlayerInputComponent->BindAction("Attack", IE_Pressed, this, &ALinkCharacter::Attack);
+		FVector2D MousePosition(LocationX, LocationY);
+		FHitResult HitResult;
+		if (PlayerController->GetHitResultAtScreenPosition(
+			MousePosition, ECC_Visibility, true, HitResult))
+		{
+			FVector TargetLocation = FVector(
+				HitResult.Location.X, HitResult.Location.Y, HitResult.Location.Z);
+			FRotator LookAtRotator = UKismetMathLibrary::FindLookAtRotation(
+				GetActorLocation(), TargetLocation);
+			FRotator NewRotator = FRotator(GetActorRotation().Pitch,
+				(LookAtRotator.Yaw), GetActorRotation().Roll);
 
-	PlayerInputComponent->BindAction("Run", IE_Pressed, this, &ALinkCharacter::StartRun);
-	PlayerInputComponent->BindAction("Run", IE_Released, this, &ALinkCharacter::StopRun);
-
-	//PlayerInputComponent->BindAction("ZoomTest", IE_Pressed, this, &ALinkCharacter::ZoomIn);
-	//PlayerInputComponent->BindAction("ZoomTest", IE_Released, this, &ALinkCharacter::ZoomOut);
-
-	PlayerInputComponent->BindAxis(TEXT("MoveForward"), this, &ALinkCharacter::MoveForward);
-	PlayerInputComponent->BindAxis(TEXT("MoveRight"), this, &ALinkCharacter::MoveRight);
-
-	PlayerInputComponent->BindAxis("Zoom", this, &ALinkCharacter::Zooming);
+			SetActorRotation(NewRotator);
+		}
+	}
 }
 
 void ALinkCharacter::MoveForward(float Value)
@@ -185,6 +200,16 @@ void ALinkCharacter::Zooming(float Value)
 	//CameraSpringArmComp->SetRelativeRotation(FRotator(FMath::Clamp(NewRotator, -60.f, -20.f), 0.f, 0.f));
 }
 
+bool ALinkCharacter::PrimaryInteract()
+{
+	if (InteractionComp)
+	{
+		return InteractionComp->PrimaryInteract();
+	}
+
+	return false;
+}
+
 void ALinkCharacter::StartJump()
 {
 	bPressedJump = true;
@@ -213,7 +238,7 @@ void ALinkCharacter::StopRun()
 	}
 }
 
-bool ALinkCharacter::IsRunning()
+bool ALinkCharacter::GetIsRunning()
 {
 	return bIsRunning;
 }
@@ -233,82 +258,14 @@ void ALinkCharacter::PrevWeapon()
 	//
 }
 
-void ALinkCharacter::EquipWeapon(AWeapon* Weapon)
-{
-	if (CurrentWeapon != NULL)
-	{
-		CurrentWeapon->OnUnEquip();
-		CurrentWeapon = Weapon;
-		Weapon->SetOwningPawn(this);
-		Weapon->OnEquip();
-	}
-	else
-	{
-		CurrentWeapon = Weapon;
-		CurrentWeapon->SetOwningPawn(this);
-		Weapon->OnEquip();
-	}
-}
-
-void ALinkCharacter::GiveDefaultWeapon()
-{
-	AWeapon* Spwner = GetWorld()->SpawnActor<AWeapon>(WeaponSpawn);
-
-	if (Spwner)
-	{
-		CurrentWeapon = Spwner;
-		CurrentWeapon->SetOwningPawn(this);
-		CurrentWeapon->OnEquip();
-	}
-}
-
-float ALinkCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
-{
-	if (IsDead)
-		return 0.f;
-
-	float FinalDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
-
-	return FinalDamage;
-}
-
 void ALinkCharacter::Attack()
 {
-	if (CurrentWeapon != NULL && !IsAttacking)
+	Super::Attack();
+
+	if (CurrentWeapon != nullptr && !IsAttacking)
 	{
-		//애니메이션 재생
-		IsAttacking = true;
-		PlayAnimMontage(AttackAnim);
-
 		//몸체 회전
-		APlayerController* PlayerController = Cast<APlayerController>(GetController());
-		if (PlayerController)
-		{
-			float LocationX, LocationY;
-			PlayerController->GetMousePosition(LocationX, LocationY);
-
-			FVector2D MousePosition(LocationX, LocationY);
-			FHitResult HitResult;
-			if (PlayerController->GetHitResultAtScreenPosition(
-				MousePosition, ECC_Visibility, true, HitResult))
-			{
-				FVector TargetLocation = FVector(
-					HitResult.Location.X, HitResult.Location.Y, HitResult.Location.Z);
-				FRotator LookAtRotator = UKismetMathLibrary::FindLookAtRotation(
-					GetActorLocation(), TargetLocation);
-				FRotator NewRotator = FRotator(GetActorRotation().Pitch,
-					(LookAtRotator.Yaw), GetActorRotation().Roll);
-
-				SetActorRotation(NewRotator);
-			}
-		}
-
-		//공격 딜레이
-		//FTimerHandle TimerHandle;
-		//GetWorld()->GetTimerManager().SetTimer(TimerHandle, FTimerDelegate::CreateLambda([&]()
-		//{
-		//	AttackTakeDamage();
-		//}), 0.5f, false);
+		RotateCharacter();
 	}
 	else
 	{
@@ -316,17 +273,14 @@ void ALinkCharacter::Attack()
 	}
 }
 
+//부모에서 호출해주면 얘가 호출됨
 void ALinkCharacter::OnAttackEnd()
 {
 	if (IsAttacking == false)
 		return;
 
-	FTimerHandle TimerHandle;
-	GetWorld()->GetTimerManager().SetTimer(TimerHandle, FTimerDelegate::CreateLambda([&]()
-	{
-		IsAttacking = false;
-		OnAttackEndDelegate.Broadcast();
-	}), 0.1f, false);
+		//isAttacking 0.3초뒤 false로 바꿔주는 함수
+	MyPlayerController->PlayerAttackEnd();
 
 	GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow, IsAttacking ? TEXT("true") : TEXT("false"));
 }
@@ -339,43 +293,6 @@ void ALinkCharacter::AttackTakeDamage(AActor* OtherActor)
 void ALinkCharacter::OnDead()
 {
 	Super::OnDead();
-}
-
-void ALinkCharacter::OnOverlapBegin(UPrimitiveComponent* OverlappedComp,
-	AActor* OtherActor, UPrimitiveComponent* OtherComp,
-	int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
-{
-	FString strText = FString::Printf(TEXT("BeginOverlap"));
-	GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Yellow, strText);
-
-	if (IsAttacking && bIsColEnd)
-	{
-		bIsColEnd = false;
-		float Damage = CurrentWeapon->GetWeaponConfig().Damage;
-		//그 물체가 몬스터라면 데미지 주기
-		if (OtherActor->IsValidLowLevelFast())
-		{
-			FDamageEvent DamageEvent;
-			OtherActor->TakeDamage(Damage, DamageEvent, GetController(), this);
-		}
-
-		//플레이어 체력
-		UE_LOG(LogTemp, Warning, TEXT("Player HP : %f"), CurrentHp);
-
-		if (OtherActor->IsValidLowLevelFast())
-			UE_LOG(LogTemp, Warning, TEXT("Name : %s"), *OtherActor->GetName());
-	}
-}
-
-void ALinkCharacter::OnOverlapEnd(UPrimitiveComponent* OverlappedComp,
-	AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
-{
-	FTimerHandle TimerHandle;
-	GetWorld()->GetTimerManager().SetTimer(TimerHandle, FTimerDelegate::CreateLambda([&]()
-	{
-		bIsColEnd = true;
-	}), 0.1f, false);
-
 }
 
 void ALinkCharacter::SetInteractiveInRange(ANPCCharacterBase* Interactive)
@@ -394,6 +311,14 @@ void ALinkCharacter::ClearInteractiveInRange(ANPCCharacterBase* Interactive)
 
 	if (CurrentInteractive == Interactive)
 		CurrentInteractive = nullptr;
+}
+
+void ALinkCharacter::LookAtUpdate(float DeltaTime)
+{
+	if (CurrentInteractive != nullptr)
+	{
+
+	}
 }
 
 void ALinkCharacter::ZoomIn()
@@ -427,7 +352,7 @@ void ALinkCharacter::ZoomOut()
 
 void ALinkCharacter::HandleZoom(float DeltaSeconds)
 {
-	UE_LOG(LogTemp, Warning, TEXT("ZoomDelta : %f"), CurrentCameraZoom);
+	//UE_LOG(LogTemp, Warning, TEXT("ZoomDelta : %f"), CurrentCameraZoom);
 	if (bTransitionZoomIn)
 	{
 		//스프링암 타겟거리
@@ -457,40 +382,3 @@ void ALinkCharacter::HandleZoom(float DeltaSeconds)
 		}
 	}
 }
-
-//float ARPGCharacter::PlayAnimMontage(UAnimMontage* AnimMontage, float InPlayRate, FName StartSectionName)
-//{
-//
-//	USkeletalMeshComponent* UseMesh = GetMesh();
-//	if (AnimMontage && UseMesh && UseMesh->AnimScriptInstance)
-//	{
-//		bool isPlaying = UseMesh->AnimScriptInstance->Montage_IsPlaying(AnimMontage);
-//		if (!isPlaying)
-//			UseMesh->AnimScriptInstance->Montage_Stop(0.0f, AnimMontage);
-//
-//		float rtn = UseMesh->AnimScriptInstance->Montage_Play(AnimMontage, InPlayRate);
-//
-//		return rtn;
-//	}
-//
-//	return 0.0f;
-//}
-//
-//void ARPGCharacter::StopAnimMontage(UAnimMontage* AnimMontage)
-//{
-//	USkeletalMeshComponent* UseMesh = GetMesh();
-//	if (AnimMontage && UseMesh && UseMesh->AnimScriptInstance &&
-//		UseMesh->AnimScriptInstance->Montage_IsPlaying(AnimMontage))
-//	{
-//		UseMesh->AnimScriptInstance->Montage_Stop(AnimMontage->BlendOutTriggerTime);
-//	}
-//}
-
-//void ARPGCharacter::StopAllAnimMontages()
-//{
-//	USkeletalMeshComponent* UseMesh = GetMesh();
-//	if (UseMesh && UseMesh->AnimScriptInstance)
-//	{
-//		UseMesh->AnimScriptInstance->Montage_Stop(0.0f);
-//	}
-//}

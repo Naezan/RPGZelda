@@ -1,0 +1,9 @@
+---,1
+DefaultMaxHealth,5
+DefaultAttackPower,1
+DefaultDefensePower,1
+DefaultMoveSpeed,200
+PlayerMaxHealth,10
+PlayerAttackPower,1
+PlayerDefensePower,1
+PlayerMoveSpeed,600

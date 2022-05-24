@@ -7,11 +7,13 @@
 #include "RPGZeldaGameModeBase.generated.h"
 
 /**
- * 
+ *
  */
 UCLASS()
 class RPGZELDA_API ARPGZeldaGameModeBase : public AGameModeBase
 {
 	GENERATED_BODY()
-	
+
+public:
+	ARPGZeldaGameModeBase();
 };

@@ -41,35 +41,40 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
-public:	
-	// Called every frame
-	virtual void Tick(float DeltaTime) override;
-
 protected:
 	UPROPERTY(EditDefaultsOnly)
 	FWeaponData WeaponConfig;
 
-private:
 	UPROPERTY(VisibleAnywhere)
 	USceneComponent* Root;
 
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
 	UStaticMeshComponent* Mesh;
 
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
 	UCapsuleComponent* CapsuleComp;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
 	ALinkCharacter* MyCharacter;
+
+	//PlayerAttack
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
+	bool bIsAttacking = false;
 
 public:
 	void SetOwningPawn(ALinkCharacter* NewOwner);
 
-	void AttachToPlayer();
-	void DetachFromPlayer();
-
-	void OnEquip();
-	void OnUnEquip();
-
 	FWeaponData GetWeaponConfig();
 	UCapsuleComponent* GetCapsuleComp();
+	
+	//PlayerAttack
+	//블루프린트에서 추가적으로 구현해야할것들 구현
+	UFUNCTION(BlueprintCallable, BlueprintImplementableEvent, Category = "Attack")
+	void BeginAttack();
+
+	UFUNCTION(BlueprintCallable, BlueprintImplementableEvent, Category = "Attack")
+	void KeepAttack();
+
+	UFUNCTION(BlueprintCallable, BlueprintImplementableEvent, Category = "Attack")
+	void EndAttack();
 };
