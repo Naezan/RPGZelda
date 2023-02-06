@@ -142,7 +142,7 @@ void ALinkCharacter::RotateCharacter()
 void ALinkCharacter::MoveForward(float Value)
 {
 	//AddMovementInput(GetActorForwardVector() * Value);
-	if ((Controller != nullptr) && (Value != 0.0f))
+	if ((Controller != nullptr) && (Value != 0.0f) && !bIsStopMoving)
 	{
 		// find out which way is forward
 		const FRotator Rotation = Controller->GetControlRotation();
@@ -157,7 +157,7 @@ void ALinkCharacter::MoveForward(float Value)
 void ALinkCharacter::MoveRight(float Value)
 {
 	//AddMovementInput(GetActorRightVector() * Value);
-	if ((Controller != nullptr) && (Value != 0.0f))
+	if ((Controller != nullptr) && (Value != 0.0f) && !bIsStopMoving)
 	{
 		// find out which way is right
 		const FRotator Rotation = Controller->GetControlRotation();

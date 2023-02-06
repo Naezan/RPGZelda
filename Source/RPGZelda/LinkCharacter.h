@@ -202,4 +202,7 @@ private:
 public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Quest")
 	bool bIsQuestComplete = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+		bool bIsStopMoving = false;
 };

@@ -270,7 +270,7 @@ void ARPGPlayerController::PlayerStopRun()
 void ARPGPlayerController::BeginPlayerAttack()
 {
 //공격중에는 공격키 안되도록
-	if (MainCharacter != nullptr && MainCharacter->CurrentWeapon != nullptr && !MainCharacter->IsAttacking)
+	if (MainCharacter != nullptr && MainCharacter->CurrentWeapon != nullptr && !MainCharacter->IsAttacking && !MainCharacter->bIsStopMoving)
 	{
 		bInputMove = false;
 		bIsAttackButtonDown = true;
