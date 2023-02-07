@@ -16,7 +16,6 @@ const FName ABossAIController::STRAFE_LOCATION_KEY = TEXT("StrafingLocation");
 
 ABossAIController::ABossAIController()
 {
-
 }
 
 void ABossAIController::PostInitializeComponents()
