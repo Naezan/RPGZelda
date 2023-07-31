@@ -26,10 +26,10 @@ public:
 	ETeamAttitude::Type GetTeamAttitudeTowards(const AActor& Other) const override;
 
 protected:
-	UPROPERTY()
+	UPROPERTY(EditAnywhere)
 	class UBehaviorTree* BTComp;
 
-	UPROPERTY()
+	UPROPERTY(EditAnywhere)
 	class UBlackboardData* BBComp;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (AllowPrivateAccess = "true"))

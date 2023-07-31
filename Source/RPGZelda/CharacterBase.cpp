@@ -4,25 +4,20 @@
 #include "CharacterBase.h"
 #include "Sound/SoundCue.h"
 #include "Components/AudioComponent.h"
-#include "Perception/AIPerceptionSystem.h"
-#include "Perception/AIPerceptionStimuliSourceComponent.h"
-#include "Perception/AISense_Sight.h"
-#include "Perception/AISense_Damage.h"
 
-#include "AttributeComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
+
+#include "AbilitySystemGlobals.h"
+#include "RPGAbilitySystemComponent.h"
+#include "RPGGameplayAbility.h"
+#include "RPGAttributeSet.h"
 
 // Sets default values
 ACharacterBase::ACharacterBase()
 {
 	PrimaryActorTick.bCanEverTick = true;
-
 	//AI소유시점
 	AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
-
-	//AI가 인식하는 컴포넌트
-	AIStimuliSource = CreateDefaultSubobject<UAIPerceptionStimuliSourceComponent>
-		(TEXT("AIPerceptionSource"));
-	AIStimuliSource->RegisterForSense(UAISense_Sight::StaticClass());
 
 	//사운트 셋팅
 	TakeDownAudioComponent = CreateDefaultSubobject<UAudioComponent>(TEXT("TakeDownAudioComponent"));
@@ -34,6 +29,15 @@ ACharacterBase::ACharacterBase()
 	DieAudioComponent->SetupAttachment(RootComponent);
 	DieAudioComponent->bOverrideAttenuation = true;
 
+	// Create ability system component, and set it to be explicitly replicated
+	AbilitySystemComponent = CreateDefaultSubobject<URPGAbilitySystemComponent>(TEXT("AbilitySystemComponent"));
+	AbilitySystemComponent->SetIsReplicated(true);
+
+	// Create the attribute set, this replicates by default
+	AttributeSet = CreateDefaultSubobject<URPGAttributeSet>(TEXT("AttributeSet"));
+
+	bAbilitiesInitialized = false;
+
 	//죽을경우에 호출되는 함수를 델리게이트에 미리 넣어놓음
 	OnDeadDelegate.AddUObject(this, &ACharacterBase::OnDead);
 }
@@ -41,8 +45,49 @@ ACharacterBase::ACharacterBase()
 void ACharacterBase::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
+}
 
-	//AttributeComp->OnHealthChanged.AddDynamic(this, &ACharacterBase::OnHealthChanged);
+void ACharacterBase::PossessedBy(AController* NewController)
+{
+	Super::PossessedBy(NewController);
+
+	InitializeAttributes();
+
+	AddStartupGameplayAbilities();
+}
+
+void ACharacterBase::OnRep_Controller()
+{
+	Super::OnRep_Controller();
+
+	// Our controller changed, must update ActorInfo on AbilitySystemComponent
+	if (AbilitySystemComponent)
+	{
+		AbilitySystemComponent->RefreshAbilityActorInfo();
+	}
+}
+
+UAbilitySystemComponent* ACharacterBase::GetAbilitySystemComponent() const
+{
+	return AbilitySystemComponent;
+}
+
+float ACharacterBase::GetHealth() const
+{
+	if (!AttributeSet)
+		return 1.f;
+
+	return AttributeSet->GetHealth();
+}
+
+float ACharacterBase::GetMaxHealth() const
+{
+	return AttributeSet->GetMaxHealth();
+}
+
+float ACharacterBase::GetMoveSpeed() const
+{
+	return AttributeSet->GetMoveSpeed();
 }
 
 // Called when the game starts or when spawned
@@ -50,14 +95,21 @@ void ACharacterBase::BeginPlay()
 {
 	Super::BeginPlay();
 
-	AIStimuliSource->RegisterWithPerceptionSystem();
-
 	// Sound
 	if (TakeDownSoundCue->IsValidLowLevelFast())
 		TakeDownAudioComponent->SetSound(TakeDownSoundCue);
 
 	if (DieSoundCue->IsValidLowLevelFast())
 		DieAudioComponent->SetSound(DieSoundCue);
+
+	SetHealth(GetMaxHealth());
+
+	/*for (TSubclassOf<URPGGameplayAbility>& Ability : GameplayAbilities)
+	{
+		FName abilityname = Ability->GetFName();
+		UE_LOG(LogTemp, Warning, TEXT("Ability : %s"), *abilityname.ToString());
+	}*/
+
 }
 
 // Called every frame
@@ -67,83 +119,22 @@ void ACharacterBase::Tick(float DeltaTime)
 
 }
 
-float ACharacterBase::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
-{
-	float FinalDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
-
-	CurrentHp -= DamageAmount;
-
-	//피격 애니메이션 재생
-	if (HitAnim)
-		PlayAnimMontage(HitAnim);
-
-	//피격사운드 재생
-	if (TakeDownAudioComponent)
-		TakeDownAudioComponent->Play();
-
-	UE_LOG(LogTemp, Warning, TEXT("Hitted HP : %f"), CurrentHp);
-
-	if (CurrentHp <= 0.001f)
-	{
-		if (!IsDead)
-		{
-			IsDead = true;
-
-			//죽는 사운드 호출
-			OnDeadDelegate.Broadcast();
-
-			//
-			UE_LOG(LogTemp, Warning, TEXT("Die"));
-
-			//오브젝트 삭제 이벤트
-			GetWorld()->GetTimerManager().SetTimer(
-				DestoryActorTimer, FTimerDelegate::CreateLambda([&]()
-			{
-				//this->Destroy();
-			}), 7.f, false);
-
-			if (DamageCauser)
-			{
-				ACharacterBase* CharacterBase = Cast<ACharacterBase>(DamageCauser);
-				if (CharacterBase)
-				{
-					//APlayerCharacter* PlayerCharacter = Cast<APlayerCharacter>(CharacterBase);
-
-					FString KillerName = CharacterBase->CharacterName;
-					FString KilledName = CharacterName;
-
-					//if (PlayerCharacter)
-					//{
-					//	if (PlayerCharacter->GetController()->IsPlayerController())
-					//	{
-					//		// Sound
-					//		TakeDownAudioComponent->Play();
-					//	}
-					//}
-				}
-			}
-		}
-
-		return 0.f;
-	}
-
-	//안죽고 데미지만 입는 이벤트
-	if (!GetController()->IsPlayerController() && DamageCauser)
-	{
-		UAISense_Damage::ReportDamageEvent(
-			this, this, EventInstigator, FinalDamage,
-			DamageCauser->GetActorLocation(), this->GetActorLocation());
-	}
-
-	return FinalDamage;
-}
-
 void ACharacterBase::OnDead()
 {
+	// Only runs on Server 어빌리티 삭제
+	RemoveCharacterAbilities();
+
 	//데스 오디오 호출
 	if (DieAudioComponent)
 	{
 		DieAudioComponent->Play();
+	}
+
+	if (AbilitySystemComponent->IsValidLowLevel())
+	{
+		AbilitySystemComponent->CancelAllAbilities();
+
+		//데드 이펙트 테그
 	}
 
 	APlayerController* PC = Cast<APlayerController>(GetController());
@@ -154,28 +145,15 @@ void ACharacterBase::OnDead()
 
 void ACharacterBase::Attack()
 {
+	//게임 어빌리티 사용하는 용도
+	OnAttacking();
 }
 
+//노티파이에서 호출
 void ACharacterBase::OnAttackEnd()
 {
 	IsAttacking = false;
 	OnAttackEndDelegate.Broadcast();
-}
-
-void ACharacterBase::ResetState()
-{
-	CurrentHp = MaxHp;
-}
-
-void ACharacterBase::SetDefaultHP(float PMaxHp)
-{
-	this->MaxHp = PMaxHp;
-	this->CurrentHp = this->MaxHp;
-}
-
-void ACharacterBase::SetCharacterName(FString Name)
-{
-	CharacterName = Name;
 }
 
 bool ACharacterBase::IsAlive()
@@ -183,9 +161,117 @@ bool ACharacterBase::IsAlive()
 	return !IsDead;
 }
 
-void ACharacterBase::RagDollDead()
+bool ACharacterBase::GetStopMoving()
 {
-	//GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	//GetMesh()->SetSimulatePhysics(true);
-	//GetCharacterMovement()->DisableMovement();
+	return bStopMoving;
+}
+
+void ACharacterBase::HandleDamage(float DamageAmount, const FHitResult& HitInfo, const struct FGameplayTagContainer& DamageTags, ACharacterBase* InstigatorPawn, AActor* DamageCauser)
+{
+	OnDamaged(DamageAmount, HitInfo, DamageTags, InstigatorPawn, DamageCauser);
+}
+
+void ACharacterBase::HandleHealthChanged(float DeltaValue, const struct FGameplayTagContainer& EventTags)
+{
+	// We only call the BP callback if this is not the initial ability setup
+	if (bAbilitiesInitialized)
+	{
+		OnHealthChanged(DeltaValue, EventTags);
+	}
+}
+
+void ACharacterBase::AddStartupGameplayAbilities()
+{
+	check(AbilitySystemComponent);
+
+	UE_LOG(LogTemp, Warning, TEXT("PossessedBy"));
+
+	if (HasAuthority() && !bAbilitiesInitialized)
+	{
+		for (TSubclassOf<URPGGameplayAbility>& Ability : GameplayAbilities)
+		{
+			AbilitySystemComponent->GiveAbility(FGameplayAbilitySpec(Ability, 1, INDEX_NONE, this));
+		}
+		AbilitySystemComponent->InitAbilityActorInfo(this, this);
+	}
+
+	bAbilitiesInitialized = true;
+}
+
+void ACharacterBase::RemoveCharacterAbilities()
+{
+	if (HasAuthority() ||
+		!AbilitySystemComponent->IsValidLowLevel())
+	{
+		return;
+	}
+
+	// Remove any abilities added from a previous call. This checks to make sure the ability is in the startup 'CharacterAbilities' array.
+	TArray<FGameplayAbilitySpecHandle> AbilitiesToRemove;
+	for (const FGameplayAbilitySpec& Spec : AbilitySystemComponent->GetActivatableAbilities())
+	{
+		if ((Spec.SourceObject == this) && GameplayAbilities.Contains(Spec.Ability->GetClass()))
+		{
+			AbilitiesToRemove.Add(Spec.Handle);
+		}
+	}
+
+	// Do in two passes so the removal happens after we have the full list
+	for (int32 i = 0; i < AbilitiesToRemove.Num(); i++)
+	{
+		AbilitySystemComponent->ClearAbility(AbilitiesToRemove[i]);
+	}
+}
+
+void ACharacterBase::InitializeAttributes()
+{
+	if (AbilitySystemComponent == nullptr)
+	{
+		return;
+	}
+
+	if (!DefaultAttributes)
+	{
+		UE_LOG(LogTemp, Error, TEXT("%s() Missing DefaultAttributes for %s. Please fill in the character's Blueprint."), *FString(__FUNCTION__), *GetName());
+		return;
+	}
+
+	// Can run on Server and Client
+	FGameplayEffectContextHandle EffectContext = AbilitySystemComponent->MakeEffectContext();
+	EffectContext.AddSourceObject(this);
+
+	FGameplayEffectSpecHandle NewHandle = AbilitySystemComponent->MakeOutgoingSpec(DefaultAttributes, 1, EffectContext);
+	if (NewHandle.IsValid())
+	{
+		FActiveGameplayEffectHandle ActiveGEHandle = AbilitySystemComponent->ApplyGameplayEffectSpecToTarget(*NewHandle.Data.Get(), AbilitySystemComponent);
+	}
+}
+
+void ACharacterBase::AddStartupEffects()
+{
+	if (GetLocalRole() != ROLE_Authority ||
+		AbilitySystemComponent == nullptr)
+	{
+		return;
+	}
+
+	FGameplayEffectContextHandle EffectContext = AbilitySystemComponent->MakeEffectContext();
+	EffectContext.AddSourceObject(this);
+
+	for (TSubclassOf<UGameplayEffect> GameplayEffect : StartupEffects)
+	{
+		FGameplayEffectSpecHandle NewHandle = AbilitySystemComponent->MakeOutgoingSpec(GameplayEffect, 1, EffectContext);
+		if (NewHandle.IsValid())
+		{
+			FActiveGameplayEffectHandle ActiveGEHandle = AbilitySystemComponent->ApplyGameplayEffectSpecToTarget(*NewHandle.Data.Get(), AbilitySystemComponent);
+		}
+	}
+}
+
+void ACharacterBase::SetHealth(float Health)
+{
+	if (AttributeSet != nullptr)
+	{
+		AttributeSet->SetHealth(Health);
+	}
 }

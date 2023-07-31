@@ -22,6 +22,7 @@ void UIngameUI::SetCharacterName(const FString& Text)
 void UIngameUI::InitializeDialogue(UDataTable* DialogueTable)
 {
 	//데이터 테이블에서 데이터 초기화
+	Dialogue.Empty();
 
 	CurrentState = 0;
 
@@ -99,7 +100,7 @@ void UIngameUI::OnSelectDownOption()
 	}
 }
 
-void UIngameUI::Interact()
+void UIngameUI::InteractUI()
 {
 	//skip textmessage
 	if (CurrentState == 1)

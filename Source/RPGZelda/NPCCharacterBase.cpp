@@ -6,10 +6,13 @@
 #include "LinkCharacter.h"
 #include "RPGPlayerController.h"
 
+#include "Kismet/KismetMathLibrary.h"
+#include "Math/UnrealMathUtility.h"
+
 // Sets default values
 ANPCCharacterBase::ANPCCharacterBase()
 {
- 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
+	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
 	LookAtPoint = CreateDefaultSubobject<USceneComponent>(TEXT("LookAtPoint"));
@@ -28,7 +31,7 @@ ANPCCharacterBase::ANPCCharacterBase()
 void ANPCCharacterBase::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
 	bIsEnabled = true;
 }
 
@@ -37,6 +40,7 @@ void ANPCCharacterBase::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	LookAtPlayer(DeltaTime);
 }
 
 // Called to bind functionality to input
@@ -56,7 +60,7 @@ void ANPCCharacterBase::OnOverlapBegin(UPrimitiveComponent* OverlappedComp, AAct
 	{
 		CurrentPlayerController = Cast<ARPGPlayerController>(CurrentCharacter->GetController());
 
-		CurrentCharacter->SetInteractiveInRange(this);
+		SetInteractive();
 	}
 }
 
@@ -68,11 +72,56 @@ void ANPCCharacterBase::OnOverlapEnd(UPrimitiveComponent* OverlappedComp, AActor
 
 	if (CurrentCharacter)
 	{
-		CurrentCharacter->ClearInteractiveInRange(this);
+		ClearInterative();
+	}
+}
 
-		CurrentPlayerController = nullptr;
+void ANPCCharacterBase::LookAtPlayer(float DeltaTime)
+{
+	if (CurrentCharacter != nullptr)
+	{
+		FVector HeadSocketLocation = GetMesh()->GetSocketLocation("LookAtHead");
 
-		//ÁÜ¾Æ¿ô?
+		FVector LookAtLocation = CurrentCharacter->GetLookAtPoint()->GetComponentLocation();
+
+		FRotator LookAtRotation = UKismetMathLibrary::FindLookAtRotation(HeadSocketLocation, LookAtLocation);
+
+		FRotator RotatorDiff = FRotator(
+			LookAtRotation.Pitch - GetActorRotation().Pitch,
+			LookAtRotation.Yaw - GetActorRotation().Yaw,
+			0.f
+		);
+
+		FRotator TargetRotation = FRotator(0.f, RotatorDiff.Yaw > 180 ? RotatorDiff.Yaw - 360.f : RotatorDiff.Yaw, -RotatorDiff.Pitch);
+
+		if (FMath::Abs(TargetRotation.Pitch) > MaxPitchRotation)
+		{
+			TargetRotation.Pitch = 0.f;
+		}
+
+		if (FMath::Abs(TargetRotation.Yaw) > MaxYawRotation)
+		{
+			TargetRotation.Yaw = 0.f;
+		}
+
+		CurrentHeadRotation = FMath::RInterpTo(CurrentHeadRotation, TargetRotation, DeltaTime, 4.f);
+
+		SetHeadRotation(CurrentHeadRotation);
+	}
+	else if (bCanLookAt)
+	{
+		CurrentHeadRotation = FMath::RInterpTo(CurrentHeadRotation, FRotator::ZeroRotator, DeltaTime, 4.f);
+
+		SetHeadRotation(CurrentHeadRotation);
+
+		if (CurrentHeadRotation.IsNearlyZero())
+		{
+			CurrentHeadRotation = FRotator::ZeroRotator;
+			SetHeadRotation(CurrentHeadRotation);
+
+			SetHeadRotationAlpha(0.f);
+			bCanLookAt = false;
+		}
 	}
 }
 
@@ -93,5 +142,25 @@ void ANPCCharacterBase::SetEnable(bool Enable)
 void ANPCCharacterBase::Interact()
 {
 	if (!bIsEnabled) return;
+}
+
+void ANPCCharacterBase::SetInteractive()
+{
+	CurrentCharacter->SetInteractiveInRange(this);
+
+	bCanLookAt = true;
+
+	SetHeadRotation(CurrentHeadRotation);
+
+	SetHeadRotationAlpha(1.f);
+}
+
+void ANPCCharacterBase::ClearInterative()
+{
+	CurrentCharacter->ClearInteractiveInRange(this);
+
+	CurrentPlayerController = nullptr;
+
+	CurrentCharacter = nullptr;
 }
 

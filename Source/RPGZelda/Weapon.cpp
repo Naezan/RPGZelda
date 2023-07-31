@@ -5,6 +5,8 @@
 #include "Components/CapsuleComponent.h"
 #include "LinkCharacter.h"
 
+#include "Engine/InputDelegateBinding.h"
+
 // Sets default values
 AWeapon::AWeapon()
 {
@@ -26,15 +28,8 @@ AWeapon::AWeapon()
 void AWeapon::BeginPlay()
 {
 	Super::BeginPlay();
-	
 }
 
-// Called every frame
-void AWeapon::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-
-}
 
 void AWeapon::SetOwningPawn(ALinkCharacter* NewOwner)
 {
@@ -42,35 +37,6 @@ void AWeapon::SetOwningPawn(ALinkCharacter* NewOwner)
 	{
 		MyCharacter = NewOwner;
 	}
-}
-
-void AWeapon::AttachToPlayer()
-{
-	if (MyCharacter)
-	{
-		//기존에 달려있는 무기 제거
-		DetachFromPlayer();
-
-		USkeletalMeshComponent* Character = MyCharacter->GetMesh();
-		Mesh->AttachToComponent(Character, 
-			FAttachmentTransformRules::SnapToTargetNotIncludingScale, "Weapon");
-	}
-}
-
-void AWeapon::DetachFromPlayer()
-{
-	Mesh->DetachFromParent();
-}
-
-void AWeapon::OnEquip()
-{
-	//충돌체 설정
-	AttachToPlayer();
-}
-
-void AWeapon::OnUnEquip()
-{
-	DetachFromPlayer();
 }
 
 FWeaponData AWeapon::GetWeaponConfig()
@@ -82,4 +48,3 @@ UCapsuleComponent* AWeapon::GetCapsuleComp()
 {
 	return CapsuleComp;
 }
-

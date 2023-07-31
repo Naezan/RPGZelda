@@ -8,9 +8,10 @@
 
 class UCameraComponent;
 class USpringArmComponent;
+class UDataTable;
 
 /**
- * 
+ *
  */
 UCLASS()
 class RPGZELDA_API AInteractiveNPCCharacter : public ANPCCharacterBase
@@ -19,13 +20,24 @@ class RPGZELDA_API AInteractiveNPCCharacter : public ANPCCharacterBase
 
 public:
 	AInteractiveNPCCharacter();
-	
+
 public:
 	void Interact() override;
 
+	UFUNCTION(BlueprintCallable, BlueprintImplementableEvent, Category = "Animation")
+		void SetInteractBeginAnimation();
+	UFUNCTION(BlueprintCallable, BlueprintImplementableEvent, Category = "Animation")
+		void SetInteractEndAnimation();
+
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dialogue")
-	class UDataTable* Dialogue;
+		TArray<UDataTable*> DialogueArray;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dialogue")
+		UDataTable* Dialogue;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dialogue")
+		UDataTable* QuestDialogue;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dialogue")
+		bool bIsQuestDone;
 
 	UPROPERTY(EditAnywhere, Category = "Camera Zoom")
 		USpringArmComponent* CameraSpringArmComp;
@@ -38,7 +50,14 @@ protected:
 protected:
 
 	UFUNCTION()
-	void OnDialogueCompleted();
+		void OnDialogueCompleted();
 
-	bool bIsInteracting = false;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dialogue")
+		bool bIsInteracting = false;
+
+public:
+	bool GetInteracting() { return bIsInteracting; }
+
+	bool GetIsQuestDone() { return bIsQuestDone; }
+	void SetIsQuestDone(bool QuestState);
 };

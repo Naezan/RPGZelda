@@ -27,27 +27,12 @@ public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
-	// Take Damage
-	virtual float TakeDamage(
-		float DamageAmount, struct FDamageEvent const& DamageEvent,
-		class AController* EventInstigator, AActor* DamageCauser) override;
-
 public:
 	UFUNCTION(BlueprintCallable)
 	virtual void Attack() override;
 
 	virtual void OnAttackEnd() override;
 
-	UFUNCTION()
-	void AttackTakeDamage();
-
 	virtual void OnDead() override;
 
-public:
-	//UPROPERTY(EditDefaultsOnly, Category = Animation)
-	//UAnimMontage* AttackAnim;
-
-public:
-
-	static const float MAX_HP;
 };

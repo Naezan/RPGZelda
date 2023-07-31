@@ -11,9 +11,11 @@ class USpringArmComponent;
 class AWeapon;
 class UAnimMontage;
 class ANPCCharacterBase;
+class UInteractComponent;
+class URPGItem;
 
 /**
- * 
+ *
  */
 UCLASS()
 class RPGZELDA_API ALinkCharacter : public ACharacterBase
@@ -37,14 +39,39 @@ public:
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
+	void LookAtUpdate(float DeltaTime);
+
 protected:
+	//카메라
 	UPROPERTY(EditAnywhere)
 		USpringArmComponent* CameraSpringArmComp;
 	UPROPERTY(EditAnywhere)
 		UCameraComponent* CameraComp;
+
+	//무기
 	UPROPERTY(EditAnywhere)
 		UStaticMeshComponent* WeaponComp;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "LookAt")
+		USceneComponent* LookAtPoint;
+
+	UPROPERTY(VisibleAnywhere)
+		UInteractComponent* InteractionComp;
+
+	// AiPerception Source
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+		class UAIPerceptionStimuliSourceComponent* AIStimuliSource;
+
+public:
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Input")
+	class ARPGPlayerController* MyPlayerController;
+
+public:
+
+	UFUNCTION(BlueprintCallable)
+		void RotateCharacter();
+
+	//무브 줌
 	UFUNCTION()
 		void MoveForward(float Value);
 	UFUNCTION()
@@ -56,6 +83,10 @@ protected:
 	UFUNCTION()
 		void Zooming(float Value);
 
+	//오브젝트 상호작용
+	bool PrimaryInteract();
+
+	//점프 달리기
 public:
 	UFUNCTION()
 		void StartJump();
@@ -67,42 +98,40 @@ public:
 		void StopRun();
 
 	UFUNCTION()
-		bool IsRunning();
+		bool GetIsRunning();
 
 	UPROPERTY(EditAnywhere)
 		float MaxWalkSpeed;
 	UPROPERTY(EditAnywhere)
 		float MaxRunSpeed;
+
 private:
 	bool bIsRunning;
-	bool bIsColEnd;
 
 public:
+
+	//무기
 	UPROPERTY(EditDefaultsOnly)
 		TSubclassOf<AWeapon> WeaponSpawn;
 
-	UPROPERTY(VisibleAnywhere)
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
 		AWeapon* CurrentWeapon;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	USceneComponent* PetComp;
+	TArray<URPGItem*> EquippedRPGItems;
 
-	//UPROPERTY(EditDefaultsOnly, Category = Animation)
-	//	UAnimMontage* CutAnim;
+	//나비
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+		USceneComponent* PetComp;
 
+	//무기
 	void ProcessWeaponPickup(AWeapon* Weapon);
 
 	void NextWeapon();
 	void PrevWeapon();
-	void EquipWeapon(AWeapon* Weapon);
-	void GiveDefaultWeapon();
-
-	virtual float TakeDamage(
-		float DamageAmount, struct FDamageEvent const& DamageEvent,
-		class AController* EventInstigator, AActor* DamageCauser) override;
 
 	UFUNCTION()
-	virtual	void Attack() override;
+		virtual	void Attack() override;
 
 	virtual void OnAttackEnd() override;
 
@@ -111,25 +140,22 @@ public:
 
 	virtual void OnDead() override;
 
-	UFUNCTION() void OnOverlapBegin(class UPrimitiveComponent* OverlappedComp, 
-		class AActor* OtherActor, class UPrimitiveComponent* OtherComp, 
-		int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
-
-	UFUNCTION()
-		virtual void OnOverlapEnd(class UPrimitiveComponent* OverlappedComp, 
-			class AActor* OtherActor, class UPrimitiveComponent* OtherComp, 
-			int32 OtherBodyIndex);
-
+	//대화
 protected:
 	ANPCCharacterBase* CurrentInteractive;
 
 public:
+	//대화
 	FORCEINLINE ANPCCharacterBase* GetInteractive() { return CurrentInteractive; }
 
-public:
-	void SetInteractiveInRange(ANPCCharacterBase* Interactive);
-	void ClearInteractiveInRange(ANPCCharacterBase* Interactive);
+	UFUNCTION(BlueprintCallable, Category = "Interact")
+		void SetInteractiveInRange(ANPCCharacterBase* Interactive);
+	UFUNCTION(BlueprintCallable, Category = "Interact")
+		void ClearInteractiveInRange(ANPCCharacterBase* Interactive);
 
+	USceneComponent* GetLookAtPoint() { return LookAtPoint; }
+
+	//줌
 protected:
 
 	void ZoomIn();
@@ -138,28 +164,29 @@ protected:
 
 	void HandleZoom(float DeltaSeconds);
 
+	//나비
 protected:
 
 	UPROPERTY(EditAnywhere, Category = "Camera Zoom")
-	float InitialArmLength = 400.f;
+		float InitialArmLength = 400.f;
 
 	UPROPERTY(EditAnywhere, Category = "Camera Zoom")
-	float TargetArmLength = 300.f;
+		float TargetArmLength = 300.f;
 
 	UPROPERTY(EditAnywhere, Category = "Camera Zoom")
-	float InitialFOV = 90.f;
+		float InitialFOV = 90.f;
 
 	UPROPERTY(EditAnywhere, Category = "Camera Zoom")
-	float TargetFOV = 60.f;
+		float TargetFOV = 60.f;
 
 	UPROPERTY(EditAnywhere, Category = "Camera Zoom")
-	float InitialPitch = -60.f;
+		float InitialPitch = -60.f;
 
 	UPROPERTY(EditAnywhere, Category = "Camera Zoom")
-	float TargetPitch = -20.f;
+		float TargetPitch = -20.f;
 
 	UPROPERTY(EditAnywhere, Category = "Camera Zoom")
-	float ZoomTransitionSpeed = 1.f;
+		float ZoomTransitionSpeed = 1.f;
 
 	float CurrentCameraZoom;
 
@@ -167,15 +194,15 @@ protected:
 
 	bool bTransitionZoomOut;
 
+	//줌
 private:
 
 	int32 CameraZoomState = 0;
 
-	//virtual float PlayAnimMontage(UAnimMontage* AnimMontage, float InPlayRate = 1.f, FName StartSectionName = NAME_None) override;
+public:
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category="Quest")
+	bool bIsQuestComplete = false;
 
-	/** stop playing montage */
-	//virtual void StopAnimMontage(UAnimMontage* AnimMontage) override;
-
-	/** stop playing all montages */
-	//void StopAllAnimMontages();
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+		bool bIsStopMoving = false;
 };
