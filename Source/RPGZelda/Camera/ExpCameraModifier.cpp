@@ -1,7 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-#include "CameraInfo.h"
 #include "ExpCameraModifier.h"
+#include "CameraInfo.h"
 #include <RPGZelda\Camera\ExpSpringArmComponent.h>
 
 UExpCameraModifier::UExpCameraModifier() 

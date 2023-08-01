@@ -50,7 +50,7 @@ void UBTService_FindNPCCenter::TickNode(UBehaviorTreeComponent& OwnerComp, uint8
 				OwnerComp.GetBlackboardComponent()->
 					SetValueAsObject(ANPCAIController::TARGET_KEY, CenterActor);
 
-				DrawDebugSphere(World, CenterActor->GetActorLocation(), DetectRadius, 16, FColor::Green, false, 1.0f);
+				//DrawDebugSphere(World, CenterActor->GetActorLocation(), DetectRadius, 16, FColor::Green, false, 1.0f);
 				return;
 			}
 		}

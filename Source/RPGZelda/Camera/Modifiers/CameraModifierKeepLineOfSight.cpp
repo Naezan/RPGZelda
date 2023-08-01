@@ -1,7 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-#include "RPGZelda\Camera\ExpPlayerCameraManager.h"
 #include "CameraModifierKeepLineOfSight.h"
+#include "RPGZelda\Camera\ExpPlayerCameraManager.h"
 
 UCameraModifierKeepLineOfSight::UCameraModifierKeepLineOfSight()
     : Super()
