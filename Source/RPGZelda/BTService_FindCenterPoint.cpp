@@ -49,7 +49,7 @@ void UBTService_FindCenterPoint::TickNode(UBehaviorTreeComponent& OwnerComp, uin
 				OwnerComp.GetBlackboardComponent()->
 					SetValueAsObject(ABossAIController::CENTER_KEY, CenterActor);
 
-				DrawDebugSphere(World, CenterActor->GetActorLocation(), DetectRadius, 16, FColor::Green, false, 1.0f);
+				//DrawDebugSphere(World, CenterActor->GetActorLocation(), DetectRadius, 16, FColor::Green, false, 1.0f);
 				return;
 			}
 		}
